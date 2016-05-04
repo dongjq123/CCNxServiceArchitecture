@@ -5,13 +5,21 @@ import org.ccnx.ccn.CCNHandle;
 import org.ccnx.ccn.CCNInterestHandler;
 import org.ccnx.ccn.config.ConfigurationException;
 import org.ccnx.ccn.impl.support.Log;
+import org.ccnx.ccn.io.CCNFileOutputStream;
+import org.ccnx.ccn.profiles.CommandMarker;
 import org.ccnx.ccn.profiles.SegmentationProfile;
+import org.ccnx.ccn.profiles.VersioningProfile;
 import org.ccnx.ccn.profiles.metadata.MetadataProfile;
+import org.ccnx.ccn.protocol.CCNTime;
 import org.ccnx.ccn.protocol.ContentName;
 import org.ccnx.ccn.protocol.Interest;
 import org.ccnx.ccn.protocol.MalformedContentNameStringException;
 
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
+import java.util.Date;
 
 /**
  * Created by fish on 16-4-21.
@@ -39,17 +47,51 @@ public class CCNServiceHandler implements CCNInterestHandler {
         }
         if (SegmentationProfile.isSegment(interest.name())
                 && !SegmentationProfile.isFirstSegment(interest.name())) {
-            Log.info("Not first segment, ignoring {0}.", interest.name());
+            Log.info(
+                    "Got an interest for something other than a first segment, ignoring {0}.",
+                    interest.name());
             return false;
-        }else if (MetadataProfile.isHeader(interest.name())) {
-            Log.info("interest for the first segment of the header, ignoring {0}.", interest.name());
+        } else if (interest.name().contains(
+                CommandMarker.COMMAND_MARKER_BASIC_ENUMERATION.getBytes())) {
+            Log.info("Got a name enumeration request: {0}", interest);
+            return false;
+        } else if (MetadataProfile.isHeader(interest.name())) {
+            Log.info(
+                    "Got an interest for the first segment of the header, ignoring {0}.",
+                    interest.name());
             return false;
         }
         ServiceNameObject serviceNameObject = ServiceNameParser.getServiceName(interest.name());
         if(serviceNameObject != null) {
             if (serviceNameObject.getServiceName() != null
                     && serviceNameObject.getServiceName().length() > 0) {
-                manager.startLocalService(serviceNameObject.getServiceName(), serviceNameObject.getVersion());
+                PipedInputStream pipedInputStream = manager.startLocalService(serviceNameObject.getServiceName(), serviceNameObject.getArgs(), serviceNameObject.getVersion());
+                if (pipedInputStream != null) {
+                    try {
+//                        PipedInputStream pipedInputStream = new PipedInputStream();
+//                        re.connect(pipedInputStream);
+                        // Set the version of the CCN content to be the last modification time
+                        // of the file.
+                        CCNTime modificationTime = new CCNTime(new Date());
+                        ContentName versionedName = VersioningProfile.updateVersion(interest.name(), modificationTime);
+                        CCNFileOutputStream cfo = new CCNFileOutputStream(versionedName, ccnHandle);
+                        cfo.addOutstandingInterest(interest);
+                        byte[] buf = new byte[1024];
+                        int len = 0;
+                        while ((len = pipedInputStream.read(buf)) > 0) {
+                            cfo.write(buf, 0, len);
+                            System.out.println("write to CCNFileOutputStream:"+len+" bytes");
+                        }
+                        cfo.flush();
+                        pipedInputStream.close();
+                        cfo.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }else {
+                    System.out.println("Service returned null...");
+                    return false;
+                }
             } else {
                 Log.warning("Service Name parse error!", serviceNameObject);
             }

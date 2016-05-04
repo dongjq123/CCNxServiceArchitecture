@@ -7,6 +7,9 @@ import org.osgi.framework.ServiceReference;
 import org.osgi.framework.launch.Framework;
 
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.PipedInputStream;
+import java.io.PipedOutputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
@@ -108,7 +111,7 @@ public class OSGIContoller {
 
     }
 
-    public void executeServiceBySymbolicName(String bundleSymbolicName, String[] args){
+    public PipedInputStream executeServiceBySymbolicName(String bundleSymbolicName, String[] args){
         Bundle b = bundleContext.getBundle(bundleSymbolicName);
         String ServiceEntryName = b.getHeaders().get(CCNServiceTag);
 //        String ServiceEntryName = "";
@@ -117,7 +120,12 @@ public class OSGIContoller {
             Object o = bundleContext.getService(sr);
             try {
                 Method m = o.getClass().getMethod("execute", String[].class);
-                m.invoke(o, new Object[]{args});
+                Object re = m.invoke(o, new Object[]{args});
+                if(re instanceof PipedInputStream){
+                    return (PipedInputStream)re;
+                }else{
+                    return null;
+                }
             } catch (NoSuchMethodException e) {
                 e.printStackTrace();
                 System.out.println("Can't find execute method!!");
@@ -129,6 +137,7 @@ public class OSGIContoller {
         }else{
             System.err.println("executeServiceBySymbolicName : Can't get Service entry class");
         }
+        return null;
     }
 
     public void updateServiceByID(long bundleID){

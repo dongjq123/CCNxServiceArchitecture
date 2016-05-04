@@ -1,5 +1,7 @@
 package edu.bupt.sia.ccn;
 
+import java.util.Arrays;
+
 /**
  * Created by fish on 16-4-22.
  */
@@ -48,5 +50,16 @@ public class ServiceNameObject {
 
     public void setVersion(String version) {
         this.version = version;
+    }
+
+    @Override
+    public String toString() {
+        return "ServiceNameObject{" +
+                "contentName='" + contentName + '\'' +
+                ", serviceName='" + serviceName + '\'' +
+                ", args=" + Arrays.toString(args) +
+                ", type='" + type + '\'' +
+                ", version='" + version + '\'' +
+                '}';
     }
 }

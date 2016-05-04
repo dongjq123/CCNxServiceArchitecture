@@ -97,7 +97,7 @@ public class CCNServicePopularity {
 
                     popularityCount(output);
 
-                    File file2 = new File("/home/yangkuang/result.txt"); //result.txt after regex
+                    File file2 = new File("./result.txt"); //result.txt after regex
                     try {
                         FileWriter fileWriter = new FileWriter(file2);
                         fileWriter.write(output);

@@ -12,9 +12,7 @@ import org.ccnx.ccn.protocol.MalformedContentNameStringException;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.Version;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.util.*;
 
 /**
@@ -154,7 +152,7 @@ public class CCNServiceManager{
         String serviceVersion = bundle.getVersion().toString();
 
         int servicePopularity = 0;
-        servicePopularity = _servicePopularity.get_CCNServicePopularity().get(serviceName);
+//        servicePopularity = _servicePopularity.get_CCNServicePopularity().get(serviceName);
 
         CCNServiceObject CCNService_Object = null;
         try {
@@ -170,23 +168,23 @@ public class CCNServiceManager{
 
     }
 
-    public void startLocalService(String serviceName, String serviceVersion) {
+    public PipedInputStream startLocalService(String serviceName, String[] args , String serviceVersion) {
         if (service_existed(serviceName)) { //whether a service exists in the CCNServiceTable
-            if (same_version(serviceVersion, serviceName)) { //check service version
+            if (serviceVersion == null || same_version(serviceVersion, serviceName)) { //check service version
                 System.out.println("Service:"+serviceName+" is existed and executing..");
-                _serviceController.executeServiceBySymbolicName(serviceName, null);
+                return _serviceController.executeServiceBySymbolicName(serviceName, args);
             } else {
                 System.out.println("Need to update the version of Service:"+serviceName+"");
                 removeService(serviceName);
                 installService(serviceName);
-                startLocalService(serviceName, serviceVersion);
+                return startLocalService(serviceName, args, serviceVersion);
             }
         }else {
             System.out.println("Service:"+serviceName+" is not existed and installing..");
             if (serviceTable_withinSize()) {//check whether the CCNServiceTable is full of service
                 System.out.println("CCNServiceTable is within the max size...Service:"+serviceName+" is installing..");
                 installService(serviceName);
-                startLocalService(serviceName, serviceVersion);
+                return startLocalService(serviceName, args, serviceVersion);
             } else {
                 System.out.println("CCNServiceTable is outside the max size...Check whether Service:"+serviceName+" can be installed..");
                 if (_servicePopularity.get_CCNServicePopularity().get(serviceName) == 2) {
@@ -195,10 +193,11 @@ public class CCNServiceManager{
                     removeService(service_tobeRemoved());
 
                     installService(serviceName);
-                    startLocalService(serviceName, serviceVersion);
+                    return startLocalService(serviceName, args, serviceVersion);
                 } else {
                     System.out.println("Do not meet the requirement to replace one old service in CCNServiceTable...Service:"+serviceName+" is dropped..");
                 }
+                return null;
             }
         }
     }
